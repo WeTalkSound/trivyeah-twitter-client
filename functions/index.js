@@ -9,17 +9,46 @@ var T = new Twit(config)
 // var trivyeah = new TrivYeah({ tenant_key:"app" })
 
 firebaseAdmin.initializeApp(functions.config().firebase);
-// var gameRepository = new FireRepo(firebaseAdmin.database().ref('games'))
+// // var gameRepository = new FireRepo(firebaseAdmin.database().ref('games'))
 var gameRepository = (firebaseAdmin.database().ref('games'))
 
-exports.duplicateSNG = functions.https.onRequest((request, response) => {
-    let first = {a:3}
-    gameRepository.on("value", async function (snapshot) {
-        first = console.log(snapshot.val())
+isNewGameRequest = (tweet) => {
+    switch (true) {
+        case Boolean(tweet.in_reply_to_status_id_str):
+        case tweet.in_reply_to_user_id_str !== "1161210094710923264":
+            return false
+        default:
+            break;
+    }
+    return true
+}
+
+startNewGame = (gameRequest) => {
+    let phrases = [
+        `Awesome! Let's begin the game then! I'll ask a question with options and the first reply with the correct option wins`,
+        `Let the games begin! Reply my question with the correct option to win!`
+    ]
+    let gameStartPhrase = phrases[Math.floor(phrases.length * Math.random())]
+    let params = {
+        status: gameStartPhrase,
+        in_reply_to_status_id: '' + gameRequest.id_str
+    }
+    T.post('statuses/update', params, (error, data, response) => {
+        console.log(data)
     })
-    T.get('statuses/mentions_timeline')
+    gameRepository
+
+}
+
+exports.duplicateSNG = functions.https.onRequest((request, response) => {
+    T.get('statuses/mentions_timeline', (err, tweets) => {
+        newGameRequests = tweets.filter(tweet => isNewGameRequest(tweet))
+        newGameRequests.forEach(gameRequest => {
+            startNewGame(gameRequest)
+        });
+        response.send(newGameRequests)
+    })
     console.log(first)
-    response.send(first)
 })
 
 exports.startNewGame = functions.pubsub.schedule('every 1 minute').onRun((context) => {
