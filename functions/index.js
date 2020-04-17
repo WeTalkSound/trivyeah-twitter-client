@@ -23,21 +23,41 @@ isNewGameRequest = (tweet) => {
     return true
 }
 
+parseUserNames = (tweet) => {
+    let userNames = tweet.entities.user_mentions.map(user => user.screen_name)
+    return userNames
+}
+
 startNewGame = (gameRequest) => {
     let phrases = [
         `Awesome! Let's begin the game then! I'll ask a question with options and the first reply with the correct option wins`,
         `Let the games begin! Reply my question with the correct option to win!`
     ]
+
     let gameStartPhrase = phrases[Math.floor(phrases.length * Math.random())]
     let params = {
-        status: gameStartPhrase,
+        status: `@${gameRequest.user.screen_name} ${gameStartPhrase}`,
         in_reply_to_status_id: '' + gameRequest.id_str
     }
+
     T.post('statuses/update', params, (error, data, response) => {
         console.log(data)
     })
-    gameRepository
 
+    let userNames = parseUserNames(gameRequest)
+
+    let users = {}
+
+    userNames.forEach(userName => {
+        users[userName] = 0
+    })
+
+    gameRepository.set({
+        [gameRequest.id_str]: {
+            latest_tweet: [gameRequest.id_str],
+            users: [users]
+        }, 
+    })
 }
 
 exports.duplicateSNG = functions.https.onRequest((request, response) => {
@@ -48,7 +68,6 @@ exports.duplicateSNG = functions.https.onRequest((request, response) => {
         });
         response.send(newGameRequests)
     })
-    console.log(first)
 })
 
 exports.startNewGame = functions.pubsub.schedule('every 1 minute').onRun((context) => {
