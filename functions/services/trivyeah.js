@@ -8,7 +8,7 @@ class Trivyeah {
     }
     
     URL_SCHEME = "https://"
-    BASE_API = "trivyeah-backend.wtxtra.agency/api/"
+    BASE_API = "trivyeah-backend.wtxtra.agency/api/v1/"
     
     request = (endpoint = "", options) => {
         let url = (this.tenantURL ? this.tenantURL : this.BASE_API ) + endpoint
@@ -31,7 +31,8 @@ class Trivyeah {
     }
 
     bootstrap = () => {
-        let url = `bootstrap`
+        let qs = `?email=${this.tenantSlug}`
+        let url = `bootstrap${qs}`
 
         let config = {
             method: "GET"
