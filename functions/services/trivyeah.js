@@ -2,14 +2,14 @@ const fetch = require("isomorphic-unfetch")
 const querystring = require("querystring")
 
 class Trivyeah {
-    URL_SCHEME = "https://"
-    BASE_API = "trivyeah-backend.wtxtra.agency/api/"
-
     constructor(config) {
         this.tenantSlug = config.tenantSlug
         this.tenantURL = this.bootstrap()
     }
-
+    
+    URL_SCHEME = "https://"
+    BASE_API = "trivyeah-backend.wtxtra.agency/api/"
+    
     request = (endpoint = "", options) => {
         let url = (this.tenantURL ? this.tenantURL : this.BASE_API ) + endpoint
 
