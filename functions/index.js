@@ -2,20 +2,24 @@ const functions = require('firebase-functions')
 const firebaseAdmin = require('firebase-admin')
 const config = require('./config.js')
 const Twit = require('twit')
-const TrivYeah = require('../services/trivyeah')
-const FireRepo = require('../services/firebase-repo')
+const TrivYeah = require('./services/trivyeah')
 
 var T = new Twit(config)
 // var trivyeah = new TrivYeah({ tenant_key:"app" })
 
-firebaseAdmin.initializeApp(functions.config().firebase);
+firebaseAdmin.initializeApp({
+    credential: firebaseAdmin.credential.applicationDefault(),
+    databaseURL: 'https://trivyeah-twitter-client.firebaseio.com'
+});
 // // var gameRepository = new FireRepo(firebaseAdmin.database().ref('games'))
 var gameRepository = (firebaseAdmin.database().ref('games'))
 
-isNewGameRequest = (tweet) => {
+isNewGameRequest = (tweet, activeGames) => {
     switch (true) {
         case Boolean(tweet.in_reply_to_status_id_str):
         case tweet.in_reply_to_user_id_str !== "1161210094710923264":
+        case !(tweet.text.toLowerCase().includes('new game')):
+        case activeGames.includes(tweet.id_str):
             return false
         default:
             break;
@@ -24,7 +28,8 @@ isNewGameRequest = (tweet) => {
 }
 
 parseUserNames = (tweet) => {
-    let userNames = tweet.entities.user_mentions.map(user => user.screen_name)
+    let userNames = tweet.entities.user_mentions.filter(user => user.id_str !== "1161210094710923264").map(user => user.screen_name)
+    userNames.unshift(tweet.user.screen_name)
     return userNames
 }
 
@@ -37,12 +42,15 @@ startNewGame = (gameRequest) => {
     let gameStartPhrase = phrases[Math.floor(phrases.length * Math.random())]
     let params = {
         status: `@${gameRequest.user.screen_name} ${gameStartPhrase}`,
-        in_reply_to_status_id: '' + gameRequest.id_str
+        in_reply_to_status_id: String(gameRequest.id_str)
     }
 
-    T.post('statuses/update', params, (error, data, response) => {
-        console.log(data)
-    })
+    // T.post('statuses/update', params, (err, data, response) => {
+    //     if (err) {
+    //         return
+    //     }
+
+    // })
 
     let userNames = parseUserNames(gameRequest)
 
@@ -52,25 +60,37 @@ startNewGame = (gameRequest) => {
         users[userName] = 0
     })
 
-    gameRepository.set({
-        [gameRequest.id_str]: {
-            latest_tweet: [gameRequest.id_str],
-            users: [users]
-        }, 
+    var newGameRef = gameRepository.push()
+    newGameRef.set({
+        start_tweet: gameRequest.id_str,
+        latest_tweet: gameRequest.id_str,
+        current_quesion: 0,
+        users: users,
     })
+
+    console.log(newGameRef.key)
 }
 
 exports.duplicateSNG = functions.https.onRequest((request, response) => {
-    T.get('statuses/mentions_timeline', (err, tweets) => {
-        newGameRequests = tweets.filter(tweet => isNewGameRequest(tweet))
-        newGameRequests.forEach(gameRequest => {
-            startNewGame(gameRequest)
-        });
-        response.send(newGameRequests)
+    gameRepository.on("value", snapshot => {
+        let data = snapshot.val()
+        let activeGames = data ? Object.values(data).map(game => game.start_tweet) : []
+        T.get('statuses/mentions_timeline', (err, tweets) => {
+            if (err) {
+                return
+            }
+            newGameRequests = tweets.filter(tweet => isNewGameRequest(tweet, activeGames))
+            newGameRequests.forEach(gameRequest => {
+                startNewGame(gameRequest)
+            })
+            response.send(newGameRequests)
+        })
+        // console.log(activeGames)
+        // response.send(activeGames)
     })
 })
 
-exports.startNewGame = functions.pubsub.schedule('every 1 minute').onRun((context) => {
-    gameRepository.first()
-    T.get('statuses/mentions_timeline')
-})
+// exports.startNewGame = functions.pubsub.schedule('every 1 minute').onRun((context) => {
+//     gameRepository.first()
+//     T.get('statuses/mentions_timeline')
+// })
