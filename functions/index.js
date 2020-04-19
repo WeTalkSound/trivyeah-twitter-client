@@ -5,7 +5,7 @@ const Twit = require('twit')
 const TrivYeah = require('./services/trivyeah')
 
 var T = new Twit(config)
-// var trivyeah = new TrivYeah({ tenant_key:"app" })
+var trivyeah = new TrivYeah({ tenantSlug:"hello@wtxtra.agency" })
 
 firebaseAdmin.initializeApp({
     credential: firebaseAdmin.credential.applicationDefault(),
@@ -44,23 +44,17 @@ startNewGame = (gameRequest) => {
         status: `@${gameRequest.user.screen_name} ${gameStartPhrase}`,
         in_reply_to_status_id: String(gameRequest.id_str)
     }
-
-    // T.post('statuses/update', params, (err, data, response) => {
-    //     if (err) {
-    //         return
-    //     }
-
-    // })
-
+    
     let userNames = parseUserNames(gameRequest)
-
+    
     let users = {}
-
+    
     userNames.forEach(userName => {
         users[userName] = 0
     })
-
+    
     var newGameRef = gameRepository.push()
+    console.log(newGameRef)
     newGameRef.set({
         start_tweet: gameRequest.id_str,
         latest_tweet: gameRequest.id_str,
@@ -68,11 +62,19 @@ startNewGame = (gameRequest) => {
         users: users,
     })
 
-    console.log(newGameRef.key)
+    T.post('statuses/update', params, (err, data, response) => {
+        if (err) {
+            console.log("There was an error tweeting the game start")
+            return
+        }
+        gameRepository.child(newGameRef.key).update({
+            latest_tweet: data.id_str
+        })
+    })
 }
 
 exports.duplicateSNG = functions.https.onRequest((request, response) => {
-    gameRepository.on("value", snapshot => {
+    gameRepository.once("value", snapshot => {
         let data = snapshot.val()
         let activeGames = data ? Object.values(data).map(game => game.start_tweet) : []
         T.get('statuses/mentions_timeline', (err, tweets) => {
