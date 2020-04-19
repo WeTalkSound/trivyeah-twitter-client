@@ -11,7 +11,6 @@ firebaseAdmin.initializeApp({
     credential: firebaseAdmin.credential.applicationDefault(),
     databaseURL: 'https://trivyeah-twitter-client.firebaseio.com'
 });
-// // var gameRepository = new FireRepo(firebaseAdmin.database().ref('games'))
 var gameRepository = (firebaseAdmin.database().ref('games'))
 
 isNewGameRequest = (tweet, activeGames) => {
@@ -64,7 +63,8 @@ startNewGame = (gameRequest) => {
 
     T.post('statuses/update', params, (err, data, response) => {
         if (err) {
-            console.log("There was an error tweeting the game start")
+            console.log("Start New Game: Error tweeting the game start")
+            console.log(err)
             return
         }
         gameRepository.child(newGameRef.key).update({
@@ -73,26 +73,21 @@ startNewGame = (gameRequest) => {
     })
 }
 
-exports.duplicateSNG = functions.https.onRequest((request, response) => {
+exports.startNewGame = functions.pubsub.schedule('every 1 minute').onRun((context) => {
     gameRepository.once("value", snapshot => {
         let data = snapshot.val()
         let activeGames = data ? Object.values(data).map(game => game.start_tweet) : []
         T.get('statuses/mentions_timeline', (err, tweets) => {
             if (err) {
+                console.log("Start New Game: Error fetching mentions")
+                console.log(err)
                 return
             }
             newGameRequests = tweets.filter(tweet => isNewGameRequest(tweet, activeGames))
             newGameRequests.forEach(gameRequest => {
                 startNewGame(gameRequest)
             })
-            response.send(newGameRequests)
+            console.log("Start New Game: Success. Games Started")
         })
-        // console.log(activeGames)
-        // response.send(activeGames)
     })
 })
-
-// exports.startNewGame = functions.pubsub.schedule('every 1 minute').onRun((context) => {
-//     gameRepository.first()
-//     T.get('statuses/mentions_timeline')
-// })
