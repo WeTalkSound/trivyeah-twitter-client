@@ -7,11 +7,11 @@ class Trivyeah {
         this.tenantURL = this.bootstrap()
     }
     
-    URL_SCHEME = "https://"
+    URL_SCHEME = "http://"
     BASE_API = "trivyeah-backend.wtxtra.agency/api/v1/"
     
     request = (endpoint = "", options) => {
-        let url = (this.tenantURL ? this.tenantURL : this.BASE_API ) + endpoint
+        let url = this.URL_SCHEME + (this.tenantURL ? this.tenantURL : this.BASE_API ) + endpoint
 
         let headers = {
             'Content-type': 'application/json'
@@ -26,7 +26,7 @@ class Trivyeah {
             if (r.ok) {
                 return r.json()
             }
-            throw new Error(r)
+            throw new Error(r.statusText)
         })
     }
 
@@ -38,7 +38,7 @@ class Trivyeah {
             method: "GET"
         }
 
-        let base_api = this.request(url, config).then(data => data.base_url)
+        let base_api = this.request(url, config).then(data => data.base_url).catch(err => console.log(err))
         
         return base_api
     }
