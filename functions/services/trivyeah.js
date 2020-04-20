@@ -3,24 +3,20 @@ const querystring = require("querystring")
 
 class Trivyeah {
     constructor(config) {
+        this.URL_SCHEME = "http://"
+        this.BASE_API = "trivyeah-backend.wtxtra.agency/api/v1/"
         this.tenantSlug = config.tenantSlug
         this.tenantURL = this.bootstrap()
     }
     
-    URL_SCHEME = "http://"
-    BASE_API = "trivyeah-backend.wtxtra.agency/api/v1/"
-    
-    request = (endpoint = "", options) => {
+    request (endpoint = "", options) {
         let url = this.URL_SCHEME + (this.tenantURL ? this.tenantURL : this.BASE_API ) + endpoint
 
         let headers = {
             'Content-type': 'application/json'
         }
 
-        let config = {
-            ...headers,
-            ...options
-        }
+        let config = Object.assign({}, headers, options)
 
         return fetch(url, config).then(r => {
             if (r.ok) {
@@ -30,7 +26,7 @@ class Trivyeah {
         })
     }
 
-    bootstrap = () => {
+    bootstrap () {
         let qs = `?email=${this.tenantSlug}`
         let url = `bootstrap${qs}`
 
@@ -43,7 +39,7 @@ class Trivyeah {
         return base_api
     }
 
-    getForms = (options) => {
+    getForms (options) {
         let qs = options ? `?${querystring(options)}` : ''
 
         let url = `forms/list${qs}`
@@ -55,7 +51,7 @@ class Trivyeah {
         return this.request(url, config)
     }
 
-    getForm = (formID) => {
+    getForm (formID) {
         let url = `forms/view?id=${formID}`
 
         let config = {

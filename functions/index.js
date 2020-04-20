@@ -53,7 +53,6 @@ startNewGame = (gameRequest) => {
     })
     
     var newGameRef = gameRepository.push()
-    console.log(newGameRef)
     newGameRef.set({
         start_tweet: gameRequest.id_str,
         latest_tweet: gameRequest.id_str,
@@ -73,7 +72,7 @@ startNewGame = (gameRequest) => {
     })
 }
 
-exports.startNewGame = functions.pubsub.schedule('every 1 minute').onRun((context) => {
+exports.startNewGame = functions.pubsub.schedule('every 1 minutes').onRun((context) => {
     gameRepository.once("value", snapshot => {
         let data = snapshot.val()
         let activeGames = data ? Object.values(data).map(game => game.start_tweet) : []
