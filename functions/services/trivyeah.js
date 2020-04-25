@@ -3,14 +3,15 @@ const querystring = require("querystring")
 
 class Trivyeah {
     constructor(config) {
-        this.URL_SCHEME = "http://"
-        this.BASE_API = "trivyeah-backend.wtxtra.agency/api/v1/"
+        this.URL_SCHEME = "https://"
+        this.BASE_URL = "trivyeah-backend.wtxtra.agency/"
+        this.API_ENDPOINT = "api/v1/"
         this.tenantSlug = config.tenantSlug
         this.tenantURL = this.bootstrap()
     }
     
     request (endpoint = "", options) {
-        let url = this.URL_SCHEME + (this.tenantURL ? this.tenantURL : this.BASE_API ) + endpoint
+        let url = (this.tenantURL ? this.tenantURL + this.API_ENDPOINT : this.URL_SCHEME + this.BASE_URL + this.API_ENDPOINT ) + endpoint
 
         let headers = {
             'Content-type': 'application/json'
@@ -27,14 +28,16 @@ class Trivyeah {
     }
 
     bootstrap () {
-        let qs = `?email=${this.tenantSlug}`
-        let url = `bootstrap${qs}`
+        // let qs = `?email=${this.tenantSlug}`
+        // let url = `bootstrap${qs}`
 
-        let config = {
-            method: "GET"
-        }
+        // let config = {
+        //     method: "GET"
+        // }
 
-        let base_api = this.request(url, config).then(data => data.base_url).catch(err => console.log(err))
+        // let base_api = this.request(url, config).then(data => data.base_url).catch(err => console.log(err))
+
+        let base_api = "https://app.trivyeah-backend.wtxtra.agency/"
         
         return base_api
     }

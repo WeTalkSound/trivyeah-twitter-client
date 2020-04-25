@@ -32,19 +32,36 @@ parseUserNames = (tweet) => {
     return userNames
 }
 
-startNewGame = (gameRequest) => {
+getGameStartTweet = (replyToTweetId, users) => {
     let phrases = [
         `Awesome! Let's begin the game then! I'll ask a question with options and the first reply with the correct option wins`,
         `Let the games begin! Reply my question with the correct option to win!`
     ]
 
     let gameStartPhrase = phrases[Math.floor(phrases.length * Math.random())]
-    let params = {
-        status: `@${gameRequest.user.screen_name} ${gameStartPhrase}`,
-        in_reply_to_status_id: String(gameRequest.id_str)
+    return {
+        status: `@${users.join(' @')} ${gameStartPhrase}`,
+        in_reply_to_status_id: String(replyToTweetId)
     }
-    
+}
+
+updateGameQuestions = (gameRef) => {
+    let randomize = (a,b) => {
+        return Math.random() - 0.5
+    }
+    trivyeah.getForm(2).then(response => {
+        let questions = response.data.sections[0].questions.sort(randomize).splice(0,9)
+        gameRef.update({
+            questions: questions
+        })
+    })
+    .catch(error => console.log(error))
+}
+
+startNewGame = (gameRequest) => {
     let userNames = parseUserNames(gameRequest)
+
+    let params = getGameStartTweet(gameRequest.id_str, userNames)
     
     let users = {}
     
@@ -57,6 +74,7 @@ startNewGame = (gameRequest) => {
         start_tweet: gameRequest.id_str,
         latest_tweet: gameRequest.id_str,
         current_quesion: 0,
+        status: "AWAITING_USER_ACTION",
         users: users,
     })
 
@@ -66,10 +84,11 @@ startNewGame = (gameRequest) => {
             console.log(err)
             return
         }
-        gameRepository.child(newGameRef.key).update({
+        newGameRef.update({
             latest_tweet: data.id_str
         })
     })
+    updateGameQuestions(newGameRef)
 }
 
 exports.startNewGame = functions.pubsub.schedule('every 1 minutes').onRun((context) => {
@@ -87,6 +106,23 @@ exports.startNewGame = functions.pubsub.schedule('every 1 minutes').onRun((conte
                 startNewGame(gameRequest)
             })
             console.log("Start New Game: Success. Games Started")
+            return 1;
         })
     })
+})
+
+exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) => {
+    gameRepository.once("value", snapshot => {
+        let games = snapshot.val()
+
+        games.forEach(game => {
+            if (game.status === "AWAITING_USER_ACTION") {
+                //Check replies to see if correct answer
+                return;
+            } else {
+                //Ask next question and increment currentQuestion
+            }
+        });
+    })
+    return 1;
 })
