@@ -1,29 +1,20 @@
 const fetch = require("isomorphic-unfetch")
 const querystring = require("querystring")
 
+
 class Trivyeah {
     constructor(config) {
-        Trivyeah.URL_SCHEME = "https://"
-        Trivyeah.BASE_URL = "trivyeah-backend.wtxtra.agency/"
-        Trivyeah.API_ENDPOINT = "api/v1/"
-        Trivyeah.tenantSlug = config.tenantSlug
-        while (! Trivyeah.tenantURL) {
-            this.bootstrap().then(url => {
-                console.log(url)
-                Trivyeah.tenantURL = url
-            })
-        }
     }
     
-    request (endpoint = "", options) {
-        let url = (this.tenantURL ? this.tenantURL + this.API_ENDPOINT : this.URL_SCHEME + this.BASE_URL + this.API_ENDPOINT ) + endpoint
-
+    static request (endpoint = "", options) {
+        let url = (Trivyeah.tenantURL ? Trivyeah.tenantURL + Trivyeah.API_ENDPOINT : Trivyeah.URL_SCHEME + Trivyeah.BASE_URL + Trivyeah.API_ENDPOINT ) + endpoint
+        
         let headers = {
             'Content-type': 'application/json'
         }
 
         let config = Object.assign({}, headers, options)
-
+        
         return fetch(url, config).then(r => {
             if (r.ok) {
                 return r.json()
@@ -32,15 +23,15 @@ class Trivyeah {
         })
     }
 
-    bootstrap () {
-        let qs = `?email=${this.tenantSlug}`
+    static bootstrap () {
+        let qs = `?email=${Trivyeah.tenantSlug}`
         let url = `bootstrap${qs}`
 
         let config = {
             method: "GET"
         }
 
-        return this.request(url, config).then(response => response.data.base_url).catch(err => console.log(err))
+        return Trivyeah.request(url, config).then(response => response.data.base_url).catch(err => console.log(err))
     }
 
     getForms (options) {
@@ -52,7 +43,7 @@ class Trivyeah {
             method: "GET"
         }
 
-        return this.request(url, config)
+        return Trivyeah.request(url, config)
     }
 
     getForm (formID) {
@@ -62,10 +53,22 @@ class Trivyeah {
             method: "GET"
         }
 
-        return this.request(url, config)
+        return Trivyeah.request(url, config)
     }
 
 
 }
+
+Trivyeah.URL_SCHEME = "https://"
+Trivyeah.BASE_URL = "trivyeah-backend.wtxtra.agency/"
+Trivyeah.API_ENDPOINT = "api/v1/"
+Trivyeah.tenantSlug = config.tenantSlug
+Trivyeah.bootstrap().then(url => {
+    console.log("Here?")
+    console.log(url)
+    Trivyeah.tenantURL = url
+}).catch(err => {
+    console.log(err)
+})
 
 module.exports = Trivyeah
