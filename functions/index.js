@@ -112,17 +112,18 @@ exports.startNewGame = functions.pubsub.schedule('every 1 minutes').onRun((conte
 })
 
 exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) => {
-    gameRepository.once("value", snapshot => {
-        let games = snapshot.val()
-
-        games.forEach(game => {
-            if (game.status === "AWAITING_USER_ACTION") {
-                //Check replies to see if correct answer
-                return;
-            } else {
-                //Ask next question and increment currentQuestion
-            }
-        });
+    trivyeah.getForm(2).then(response => {
+        console.log(response)
     })
+    // gameRepository.once("child_added", snapshot => {
+    //     let game = snapshot.val()
+//         if (game.status === "AWAITING_USER_ACTION") {
+//             //Check replies to see if correct answer
+//             return
+//         } else {
+//             //Ask next question and increment currentQuestion
+//             return
+//         }
+    // })
     return 1;
 })
