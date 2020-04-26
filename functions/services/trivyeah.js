@@ -7,7 +7,10 @@ class Trivyeah {
         this.BASE_URL = "trivyeah-backend.wtxtra.agency/"
         this.API_ENDPOINT = "api/v1/"
         this.tenantSlug = config.tenantSlug
-        this.tenantURL = this.bootstrap()
+        this.bootstrap().then(url => {
+            // console.log(url)
+            this.tenantURL = url
+        })
     }
     
     request (endpoint = "", options) {
@@ -28,14 +31,14 @@ class Trivyeah {
     }
 
     bootstrap () {
-        // let qs = `?email=${this.tenantSlug}`
-        // let url = `bootstrap${qs}`
+        let qs = `?email=${this.tenantSlug}`
+        let url = `bootstrap${qs}`
 
-        // let config = {
-        //     method: "GET"
-        // }
+        let config = {
+            method: "GET"
+        }
 
-        // let base_api = this.request(url, config).then(data => data.base_url).catch(err => console.log(err))
+        return this.request(url, config).then(response => response.data.base_url).catch(err => console.log(err))
 
         let base_api = "https://app.trivyeah-backend.wtxtra.agency/"
         
