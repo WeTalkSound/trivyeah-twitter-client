@@ -3,14 +3,16 @@ const querystring = require("querystring")
 
 class Trivyeah {
     constructor(config) {
-        this.URL_SCHEME = "https://"
-        this.BASE_URL = "trivyeah-backend.wtxtra.agency/"
-        this.API_ENDPOINT = "api/v1/"
-        this.tenantSlug = config.tenantSlug
-        this.bootstrap().then(url => {
-            // console.log(url)
-            this.tenantURL = url
-        })
+        Trivyeah.URL_SCHEME = "https://"
+        Trivyeah.BASE_URL = "trivyeah-backend.wtxtra.agency/"
+        Trivyeah.API_ENDPOINT = "api/v1/"
+        Trivyeah.tenantSlug = config.tenantSlug
+        while (! Trivyeah.tenantURL) {
+            this.bootstrap().then(url => {
+                console.log(url)
+                Trivyeah.tenantURL = url
+            })
+        }
     }
     
     request (endpoint = "", options) {
@@ -39,10 +41,6 @@ class Trivyeah {
         }
 
         return this.request(url, config).then(response => response.data.base_url).catch(err => console.log(err))
-
-        let base_api = "https://app.trivyeah-backend.wtxtra.agency/"
-        
-        return base_api
     }
 
     getForms (options) {
