@@ -31,6 +31,11 @@ Bootstraper.request = (endpoint = "", options) => {
     })
 }
 
+
+
+
+
+
 class Trivyeah {
 
     getForms (options) {
@@ -51,7 +56,7 @@ class Trivyeah {
         let config = {
             method: "GET"
         }
-        
+
         return Bootstraper.request(url, config)
     }
 
