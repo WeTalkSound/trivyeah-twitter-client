@@ -20,6 +20,8 @@ const GAME_STATUS = {
     }
 }
 
+const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
+
 isNewGameRequest = (tweet, activeGames) => {
     switch (true) {
         case Boolean(tweet.in_reply_to_status_id_str):
@@ -48,21 +50,6 @@ getGameStartTweet = (replyToTweetId, users) => {
     let gameStartPhrase = phrases[Math.floor(phrases.length * Math.random())]
     return {
         status: `@${users.join(' @')} ${gameStartPhrase}`,
-        in_reply_to_status_id: String(replyToTweetId)
-    }
-}
-
-getNextQuestionTweet = (replyToTweetId, users, question, options) => {
-    let phrases = [
-        `Next question.`,
-        `This one.`,
-        `Another one.`,
-        `Ready? Here's the next:` 
-    ]
-
-    let questionIntro = phrases[Math.floor(phrases.length * Math.random())]
-    return {
-        status: `@${users.join(' @')} ${questionIntro} ${question} Is it ${options.join('. ')}`,
         in_reply_to_status_id: String(replyToTweetId)
     }
 }
@@ -148,9 +135,45 @@ isSubmittedAnswer = (tweet, game) => {
     return true
 }
 
-markAnswer = (answer, game) => {
-    answer.text
-    return true
+getCorrectAnswerTweet = (replyToTweetId, users) => {
+    let phrases = [
+        `That's Right! This is the right answer`,
+        `Ding ding ding. A Winner!`,
+        `Exactly! Got it in one.`,
+        `Well, you know your stuff!` 
+    ]
+
+    let phrase = phrases[Math.floor(phrases.length * Math.random())]
+    return {
+        status: `@${users.join(' @')} ${phrase} Get ready for the next one!`,
+        in_reply_to_status_id: String(replyToTweetId)
+    }
+}
+
+getNextQuestionTweet = (replyToTweetId, users, question, options) => {
+    let phrases = [
+        `Next question.`,
+        `This one.`,
+        `Another one.`,
+        `Ready? Here's the next:` 
+    ]
+
+    let questionIntro = phrases[Math.floor(phrases.length * Math.random())]
+    return {
+        status: `@${users.join(' @')} ${questionIntro} ${question} Is it ${options.join('. ')}`,
+        in_reply_to_status_id: String(replyToTweetId)
+    }
+}
+
+isCorrrectAnswer = (answer, game) => {
+    let optionSelected = answer.text.toLowerCase().charAt(0)
+    let optionIndex = OPTION_LABELS.indexOf(optionSelected)
+    if(optionIndex !== -1) {
+        if(game.questions[game.current_question].options[optionIndex] === 1){
+            return true
+        }
+    }
+    return false
 }
 
 exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) => {    
@@ -166,13 +189,30 @@ exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) 
                 //Check replies to see if correct answer
                 T.get('statuses/mentions_timeline', (err, tweets) => {
                     if (err) {
-                        console.log("Start New Game: Error fetching mentions")
+                        console.log("Game Play: Error fetching mentions")
                         console.log(err)
                         return
                     }
                     submittedAnswers = tweets.filter(tweet => isSubmittedAnswer(tweet, game))
                     for(const [index, answer] of submittedAnswers.entries()) {
-                        if (markAnswer(answer, game)) {
+                        if (isCorrrectAnswer(answer, game)) {
+                            users = game.users
+                            users[answer.user.screen_name] += game.users[answer.user.screen_name]
+                            snapshot.ref.update({
+                                users: users
+                            })
+                            let tweetParams = getCorrectAnswerTweet(game.latest_tweet, users)
+                            T.post('statuses/update', tweetParams, (err, data, response) => {
+                                if (err) {
+                                    console.log("Game Play: Error tweeting correct answer")
+                                    console.log(err)
+                                    return
+                                }
+                                snapshot.ref.update({
+                                    latest_tweet: data.id_str,
+                                    status: "AWAITING_SYSTEM_ACTION"
+                                })
+                            })
                             break
                         }
                     }
@@ -180,17 +220,15 @@ exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) 
                 })
                 return
             } else {
-                labels = ['A', 'B', 'C', 'D', 'E', 'F']
                 currentQuestion = game.questions[game.current_question]
                 let options = currentQuestion.options.map((option, index) => {
-                    return `${labels[index]}. ${option.text}`
+                    return `${OPTION_LABELS[index]}. ${option.text}`
                 })
                 let users = Object.keys(game.users)
                 let tweetParams = getNextQuestionTweet(game.latest_tweet, users, currentQuestion.text, options)
-                console.log(tweetParams)
                 T.post('statuses/update', tweetParams, (err, data, response) => {
                     if (err) {
-                        console.log("Start New Game: Error tweeting the game start")
+                        console.log("Game Play: Error tweeting next question")
                         console.log(err)
                         return
                     }
