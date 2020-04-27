@@ -5,7 +5,7 @@ const Twit = require('twit')
 const TrivYeah = require('./services/trivyeah')
 
 var T = new Twit(config)
-var trivyeah = new TrivYeah({ tenantSlug:"hello@wtxtra.agency" })
+var Trivyeah = new TrivYeah({ tenantSlug:"hello@wtxtra.agency" })
 
 firebaseAdmin.initializeApp({
     credential: firebaseAdmin.credential.applicationDefault(),
@@ -49,13 +49,15 @@ updateGameQuestions = (gameRef) => {
     let randomize = (a,b) => {
         return Math.random() - 0.5
     }
-    trivyeah.getForm(2).then(response => {
-        let questions = response.data.sections[0].questions.sort(randomize).splice(0,9)
-        gameRef.update({
-            questions: questions
+    Trivyeah.initTenant(trivyeah => {
+        trivyeah.getForm(2).then(response => {
+            let questions = response.data.sections[0].questions.sort(randomize).splice(0,9)
+            gameRef.update({
+                questions: questions
+            })
         })
+        .catch(error => console.log(error))
     })
-    .catch(error => console.log(error))
 }
 
 startNewGame = (gameRequest) => {
@@ -112,9 +114,13 @@ exports.startNewGame = functions.pubsub.schedule('every 1 minutes').onRun((conte
 })
 
 exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) => {
-    trivyeah.getForm(2).then(response => {
-        console.log(response)
+    
+    Trivyeah.initTenant(trivyeah => {
+        trivyeah.getForm(2).then(response => {
+            console.log(response)
+        })
     })
+    
     // gameRepository.once("child_added", snapshot => {
     //     let game = snapshot.val()
 //         if (game.status === "AWAITING_USER_ACTION") {
