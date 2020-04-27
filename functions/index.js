@@ -13,6 +13,13 @@ firebaseAdmin.initializeApp({
 });
 var gameRepository = (firebaseAdmin.database().ref('games'))
 
+const GAME_STATUS = {
+    ACTIVE_GAME: {
+        AWAITING_SYSTEM_ACTION: 'AWAITING_SYSTEM_ACTION',
+        AWAITING_USER_ACTION: 'AWAITING_USER_ACTION'
+    }
+}
+
 isNewGameRequest = (tweet, activeGames) => {
     switch (true) {
         case Boolean(tweet.in_reply_to_status_id_str):
@@ -41,6 +48,21 @@ getGameStartTweet = (replyToTweetId, users) => {
     let gameStartPhrase = phrases[Math.floor(phrases.length * Math.random())]
     return {
         status: `@${users.join(' @')} ${gameStartPhrase}`,
+        in_reply_to_status_id: String(replyToTweetId)
+    }
+}
+
+getNextQuestionTweet = (replyToTweetId, users, question, options) => {
+    let phrases = [
+        `Next question.`,
+        `This one.`,
+        `Another one.`,
+        `Ready? Here's the next:` 
+    ]
+
+    let questionIntro = phrases[Math.floor(phrases.length * Math.random())]
+    return {
+        status: `@${users.join(' @')} ${questionIntro} ${question} Is it ${options.join('. ')}`,
         in_reply_to_status_id: String(replyToTweetId)
     }
 }
@@ -75,8 +97,8 @@ startNewGame = (gameRequest) => {
     newGameRef.set({
         start_tweet: gameRequest.id_str,
         latest_tweet: gameRequest.id_str,
-        current_quesion: 0,
-        status: "AWAITING_USER_ACTION",
+        current_question: 0,
+        status: GAME_STATUS.ACTIVE_GAME.AWAITING_SYSTEM_ACTION,
         users: users,
     })
 
@@ -91,6 +113,7 @@ startNewGame = (gameRequest) => {
         })
     })
     updateGameQuestions(newGameRef)
+    console.log("Start New Game: Success. Games Started")
 }
 
 exports.startNewGame = functions.pubsub.schedule('every 1 minutes').onRun((context) => {
@@ -107,29 +130,46 @@ exports.startNewGame = functions.pubsub.schedule('every 1 minutes').onRun((conte
             newGameRequests.forEach(gameRequest => {
                 startNewGame(gameRequest)
             })
-            console.log("Start New Game: Success. Games Started")
             return 1;
         })
     })
 })
 
-exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) => {
-    
-    Trivyeah.initTenant(trivyeah => {
-        trivyeah.getForm(2).then(response => {
-            console.log(response)
-        })
+exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) => {    
+    gameRepository
+        .on("child_added", snapshot => {
+            let game = snapshot.val()
+            console.log(game)
+            if (game.status !== GAME_STATUS.ACTIVE_GAME.AWAITING_USER_ACTION && game.status !== GAME_STATUS.ACTIVE_GAME.AWAITING_SYSTEM_ACTION) {
+                return
+            }
+
+            if (game.status === GAME_STATUS.ACTIVE_GAME.AWAITING_USER_ACTION) {
+                //Check replies to see if correct answer
+                return
+            } else {
+                labels = ['A', 'B', 'C', 'D', 'E', 'F']
+                currentQuestion = game.questions[game.current_question]
+                let options = currentQuestion.options.map((option, index) => {
+                    return `${labels[index]}. ${option.text}`
+                })
+                let users = Object.keys(game.users)
+                let tweetParams = getNextQuestionTweet(game.latest_tweet, users, currentQuestion.text, options)
+                console.log(tweetParams)
+                T.post('statuses/update', tweetParams, (err, data, response) => {
+                    if (err) {
+                        console.log("Start New Game: Error tweeting the game start")
+                        console.log(err)
+                        return
+                    }
+                    snapshot.ref.update({
+                        latest_tweet: data.id_str,
+                        status: "AWAITING_USER_ACTION"
+                    })
+                })
+
+                return
+            }
     })
-    
-    // gameRepository.once("child_added", snapshot => {
-    //     let game = snapshot.val()
-//         if (game.status === "AWAITING_USER_ACTION") {
-//             //Check replies to see if correct answer
-//             return
-//         } else {
-//             //Ask next question and increment currentQuestion
-//             return
-//         }
-    // })
     return 1;
 })
