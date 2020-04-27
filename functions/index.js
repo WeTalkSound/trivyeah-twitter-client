@@ -17,7 +17,8 @@ const GAME_STATUS = {
     ACTIVE_GAME: {
         AWAITING_SYSTEM_ACTION: 'AWAITING_SYSTEM_ACTION',
         AWAITING_USER_ACTION: 'AWAITING_USER_ACTION'
-    }
+    },
+    GAME_OVER: 'GAME_OVER'
 }
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
@@ -165,11 +166,32 @@ getNextQuestionTweet = (replyToTweetId, users, question, options) => {
     }
 }
 
+getGameOverTweet = (replyToTweetId, users, ranking) => {
+    let phrases = [
+        `That's all folks.`,
+        `It's over!`,
+        `Victory for some, defeat for others`,
+        `Ah. All good must come to an end.` 
+    ]
+
+    let phrase = phrases[Math.floor(phrases.length * Math.random())]
+
+    let entries = Object.entries(ranking);
+    
+    let sorted = entries.sort((a, b) => a[1] - b[1]);
+    ranking = sorted.map(ranking => ranking.join(" - "))
+
+    return {
+        status: `@${users.join(' @')} ${phrase} Here are the rankings: \n${ranking.join('\n')}`,
+        in_reply_to_status_id: String(replyToTweetId)
+    }
+}
+
 isCorrrectAnswer = (answer, game) => {
-    let optionSelected = answer.text.toLowerCase().charAt(0)
+    let optionSelected = answer.text.toUpperCase().charAt(answer.text.length - 1)
     let optionIndex = OPTION_LABELS.indexOf(optionSelected)
     if(optionIndex !== -1) {
-        if(game.questions[game.current_question].options[optionIndex] === 1){
+        if(game.questions[game.current_question].options[optionIndex].value === 1){
             return true
         }
     }
@@ -180,7 +202,6 @@ exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) 
     gameRepository
         .on("child_added", snapshot => {
             let game = snapshot.val()
-            console.log(game)
             if (game.status !== GAME_STATUS.ACTIVE_GAME.AWAITING_USER_ACTION && game.status !== GAME_STATUS.ACTIVE_GAME.AWAITING_SYSTEM_ACTION) {
                 return
             }
@@ -193,15 +214,18 @@ exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) 
                         console.log(err)
                         return
                     }
-                    submittedAnswers = tweets.filter(tweet => isSubmittedAnswer(tweet, game))
+                    //API returns newest first. Older answers should get a chance first.
+                    submittedAnswers = tweets.reverse().filter(tweet => isSubmittedAnswer(tweet, game))
                     for(const [index, answer] of submittedAnswers.entries()) {
                         if (isCorrrectAnswer(answer, game)) {
                             users = game.users
-                            users[answer.user.screen_name] += game.users[answer.user.screen_name]
+                            currentQuestion = game.current_question + 1
+                            users[answer.user.screen_name] += 1
                             snapshot.ref.update({
-                                users: users
+                                users: users,
+                                current_question: currentQuestion
                             })
-                            let tweetParams = getCorrectAnswerTweet(game.latest_tweet, users)
+                            let tweetParams = getCorrectAnswerTweet(answer.id_str, Object.keys(users))
                             T.post('statuses/update', tweetParams, (err, data, response) => {
                                 if (err) {
                                     console.log("Game Play: Error tweeting correct answer")
@@ -220,6 +244,21 @@ exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) 
                 })
                 return
             } else {
+                if (game.current_question >= game.questions.length) {
+                    console.log("Game Play: Game Over. Determine Winners")
+                    let tweetParams = getGameOverTweet(game.latest_tweet, Object.keys(game.users), game.users)
+                    T.post('statuses/update', tweetParams, (err, data, response) => {
+                        if (err) {
+                            console.log("Game Play: Error tweeting winner")
+                            console.log(err)
+                            return
+                        }
+                        snapshot.ref.update({
+                            latest_tweet: data.id_str,
+                            status: GAME_STATUS.GAME_OVER
+                        })
+                    })
+                }
                 currentQuestion = game.questions[game.current_question]
                 let options = currentQuestion.options.map((option, index) => {
                     return `${OPTION_LABELS[index]}. ${option.text}`
@@ -234,7 +273,7 @@ exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) 
                     }
                     snapshot.ref.update({
                         latest_tweet: data.id_str,
-                        status: "AWAITING_USER_ACTION"
+                        status: GAME_STATUS.ACTIVE_GAME.AWAITING_USER_ACTION
                     })
                 })
 
