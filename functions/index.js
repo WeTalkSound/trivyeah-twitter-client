@@ -77,6 +77,7 @@ updateGameQuestions = (gameRef) => {
             gameRef.update({
                 questions: questions
             })
+            return
         })
         .catch(error => console.log(error))
     })
@@ -130,10 +131,27 @@ exports.startNewGame = functions.pubsub.schedule('every 1 minutes').onRun((conte
             newGameRequests.forEach(gameRequest => {
                 startNewGame(gameRequest)
             })
-            return 1;
+            return
         })
     })
 })
+
+isSubmittedAnswer = (tweet, game) => {
+    switch (true) {
+        case tweet.in_reply_to_status_id_str !== game.latest_tweet:
+        case tweet.in_reply_to_user_id_str !== "1161210094710923264":
+        case (! Object.keys(game.users).includes(tweet.user.screen_name) ):
+            return false
+        default:
+            break;
+    }
+    return true
+}
+
+markAnswer = (answer, game) => {
+    answer.text
+    return true
+}
 
 exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) => {    
     gameRepository
@@ -146,6 +164,20 @@ exports.gamePlay = functions.pubsub.schedule('every 1 minutes').onRun((context) 
 
             if (game.status === GAME_STATUS.ACTIVE_GAME.AWAITING_USER_ACTION) {
                 //Check replies to see if correct answer
+                T.get('statuses/mentions_timeline', (err, tweets) => {
+                    if (err) {
+                        console.log("Start New Game: Error fetching mentions")
+                        console.log(err)
+                        return
+                    }
+                    submittedAnswers = tweets.filter(tweet => isSubmittedAnswer(tweet, game))
+                    for(const [index, answer] of submittedAnswers.entries()) {
+                        if (markAnswer(answer, game)) {
+                            break
+                        }
+                    }
+                    return
+                })
                 return
             } else {
                 labels = ['A', 'B', 'C', 'D', 'E', 'F']

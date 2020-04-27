@@ -10,10 +10,10 @@ class Trivyeah {
     }
 
     initTenant (callback) {
-        this.bootstrap().then(base_url => {
+        return this.bootstrap().then(base_url => {
             this.tenantURL = `${base_url}/`.replace('http://', this.URL_SCHEME)
-            callback(this)
-        })
+            return callback(this)
+        }).catch(err => console.log(err))
     }
     
     request (endpoint = "", options) {
